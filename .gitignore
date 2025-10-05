@@ -1,22 +1,21 @@
-.env 
-.env 
 # Node modules
 node_modules/
-
-# Environment variables
-.env
-
-# SQLite DB (local, not Render persistent)
-backend/skillvision.db
 
 # Logs
 logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# OS files
+# Environment variables
+.env
+
+# SQLite database
+backend/skillvision.db
+
+# MacOS files
 .DS_Store
-Thumbs.db
 
-# Build artifacts (if any)
+# Build output
 dist/
-build/
