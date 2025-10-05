@@ -1,3 +1,4 @@
+// backend/server.js
 import express from "express";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
@@ -18,17 +19,17 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // ---------------- DATABASE SETUP ---------------- //
-// Use Render persistent disk if available, else fallback to local dev
-const DB_DIR = process.env.RENDER_DISK_PATH || __dirname;
+// Use Render persistent disk if available, else fallback to local
+const DB_DIR = process.env.RENDER_DISK_PATH || path.join(__dirname, "db");
+
+// Ensure DB directory exists
+if (!fs.existsSync(DB_DIR)) fs.mkdirSync(DB_DIR, { recursive: true });
+
 const DB_PATH = path.join(DB_DIR, "skillvision.db");
 
-console.log("Using DB path:", DB_PATH);
-
 // Ensure DB file exists
-if (!fs.existsSync(DB_PATH)) {
-  fs.writeFileSync(DB_PATH, "");
-  console.log("Created skillvision.db file.");
-}
+if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, "");
+console.log("Using DB path:", DB_PATH);
 
 let db;
 
@@ -73,7 +74,7 @@ async function initDB() {
 app.use(cors());
 app.use(express.json());
 
-// Serve frontend from correct Render path
+// Serve frontend
 const FRONTEND_PATH = path.join(__dirname, "../frontend");
 app.use(express.static(FRONTEND_PATH));
 
@@ -225,6 +226,10 @@ app.post("/api/ai-response", async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ error: "OPENAI_API_KEY is missing" });
+  }
+
   try {
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",
@@ -234,12 +239,12 @@ app.post("/api/ai-response", async (req, res) => {
     const aiText = response.data.choices[0].message.content;
     res.json({ response: aiText });
   } catch (err) {
-    console.error("AI Response Error:", err);
+    console.error("AI Response Error:", err.message);
     res.status(500).json({ error: "AI response failed" });
   }
 });
 
-// Serve frontend index.html for all other routes (SPA support)
+// SPA support
 app.get("*", (req, res) => {
   res.sendFile(path.join(FRONTEND_PATH, "index.html"));
 });
