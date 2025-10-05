@@ -23,9 +23,11 @@ app.use(express.static(path.join(__dirname, "../"))); // serve frontend if neede
 let db;
 
 // Initialize SQLite DB
+// Initialize SQLite DB
 async function initDB() {
+  const dbFile = path.join(__dirname, "skillvision.db");
   db = await open({
-    filename: path.join(__dirname, "skillvision.db"),
+    filename: dbFile,
     driver: sqlite3.Database,
   });
 
@@ -53,7 +55,18 @@ async function initDB() {
     )
   `);
 
-  console.log(`Connected to SQLite database at: ${path.join(__dirname, "skillvision.db")}`);
+  console.log(`Connected to SQLite database at: ${dbFile}`);
+
+  // Create default admin if it doesn't exist
+  const adminExists = await db.get("SELECT * FROM users WHERE email = ?", ["admin@mail.com"]);
+  if (!adminExists) {
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+    await db.run(
+      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+      ["Admin", "admin@mail.com", hashedPassword, "admin"]
+    );
+    console.log("Default admin user created: admin@mail.com / admin123");
+  }
 }
 
 // Logging middleware
