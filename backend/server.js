@@ -1,3 +1,4 @@
+// backend/server.js
 import express from "express";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
@@ -6,7 +7,6 @@ import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
 
 dotenv.config();
@@ -17,76 +17,76 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Use /tmp for free plan (writable, ephemeral)
-const DB_PATH = path.join("/tmp", "skillvision.db");
+// --- Use /tmp for free Render plan ---
+const DB_PATH = "/tmp/skillvision.db";
 console.log("Using DB path:", DB_PATH);
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../"))); // serve frontend if needed
 
+// Serve frontend if you have it
+app.use(express.static(path.join(__dirname, "../")));
+
+// --- Initialize SQLite DB ---
 let db;
-
-// Initialize DB
 async function initDB() {
-  db = await open({
-    filename: DB_PATH,
-    driver: sqlite3.Database,
-  });
+  try {
+    db = await open({
+      filename: DB_PATH,
+      driver: sqlite3.Database,
+    });
 
-  // Create tables if they don't exist
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT UNIQUE,
-      password TEXT,
-      role TEXT
-    )
-  `);
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        email TEXT UNIQUE,
+        password TEXT,
+        role TEXT
+      )
+    `);
 
-  await db.run(`
-    CREATE TABLE IF NOT EXISTS tickets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      description TEXT,
-      priority TEXT,
-      status TEXT,
-      agent TEXT,
-      created_at TEXT
-    )
-  `);
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        description TEXT,
+        priority TEXT,
+        status TEXT,
+        agent TEXT,
+        created_at TEXT
+      )
+    `);
 
-  console.log(`Connected to SQLite database at: ${DB_PATH}`);
-  console.warn(
-    "⚠️  Using temporary DB on free plan. Data will reset on redeploy."
-  );
+    console.log(`✅ Connected to SQLite database at ${DB_PATH}`);
+    console.warn("⚠️ Using temporary DB on free plan. Data will reset on redeploy.");
+  } catch (err) {
+    console.error("❌ Failed to initialize DB:", err);
+    process.exit(1); // Stop server if DB cannot open
+  }
 }
 
-// Logging middleware
+// --- Logging middleware ---
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.body && Object.keys(req.body).length > 0) console.log("Body:", req.body);
   next();
 });
 
-// Registration
+// --- Routes ---
+
+// Register
 app.post("/register", async (req, res) => {
   const { name, email, password, role } = req.body;
-  if (!name || !email || !password || !role)
-    return res.status(400).json({ message: "All fields are required" });
+  if (!name || !email || !password || !role) return res.status(400).json({ message: "All fields are required" });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    await db.run(
-      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-      [name, email, hashedPassword, role]
-    );
+    await db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", [name, email, hashedPassword, role]);
     res.json({ message: "Registered successfully" });
   } catch (err) {
     console.error("DB Error:", err.message);
-    if (err.message.includes("UNIQUE constraint failed"))
-      res.status(400).json({ message: "Email already exists" });
+    if (err.message.includes("UNIQUE constraint failed")) res.status(400).json({ message: "Email already exists" });
     else res.status(500).json({ message: "Server error" });
   }
 });
@@ -101,11 +101,7 @@ app.post("/login", async (req, res) => {
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const match = await bcrypt.compare(password, user.password);
-    if (match)
-      res.json({
-        message: "Login successful",
-        user: { name: user.name, email: user.email, role: user.role },
-      });
+    if (match) res.json({ message: "Login successful", user: { name: user.name, email: user.email, role: user.role } });
     else res.status(400).json({ message: "Invalid credentials" });
   } catch (err) {
     console.error("Login Error:", err);
@@ -129,18 +125,10 @@ app.get("/tickets", async (req, res) => {
   let query = "SELECT * FROM tickets";
   const params = [];
 
-  if (agent || status) {
-    const conditions = [];
-    if (agent && agent !== "all") {
-      conditions.push("agent = ?");
-      params.push(agent);
-    }
-    if (status && status !== "all") {
-      conditions.push("status = ?");
-      params.push(status);
-    }
-    query += " WHERE " + conditions.join(" AND ");
-  }
+  const conditions = [];
+  if (agent && agent !== "all") { conditions.push("agent = ?"); params.push(agent); }
+  if (status && status !== "all") { conditions.push("status = ?"); params.push(status); }
+  if (conditions.length) query += " WHERE " + conditions.join(" AND ");
 
   try {
     const tickets = await db.all(query, params);
@@ -212,8 +200,7 @@ app.post("/api/ai-response", async (req, res) => {
       { model: "gpt-3.5-turbo", messages: [{ role: "user", content: prompt }], max_tokens: 300 },
       { headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` } }
     );
-    const aiText = response.data.choices[0].message.content;
-    res.json({ response: aiText });
+    res.json({ response: response.data.choices[0].message.content });
   } catch (err) {
     console.error("AI Response Error:", err);
     res.status(500).json({ error: "AI response failed" });
@@ -225,7 +212,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../index.html"));
 });
 
-// Start server
+// --- Start server ---
 initDB()
   .then(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)))
   .catch(err => console.error("Failed to start server:", err));
