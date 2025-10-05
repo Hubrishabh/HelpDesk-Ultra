@@ -1,77 +1,76 @@
-// backend/server.js
 import express from "express";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import axios from "axios";
 import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// --- Use /tmp for SQLite DB on free Render plan ---
-const DB_PATH = "/tmp/skillvision.db";
+// Free plan: use /tmp for SQLite
+const DB_PATH = path.join("/tmp", "skillvision.db");
 console.log("Using DB path:", DB_PATH);
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "index.html"))); // serve frontend
 
 let db;
 
-// --- Initialize DB ---
+// Initialize DB
 async function initDB() {
-  try {
-    db = await open({
-      filename: DB_PATH,
-      driver: sqlite3.Database,
-    });
+  db = await open({
+    filename: DB_PATH,
+    driver: sqlite3.Database,
+  });
 
-    // Create users table
-    await db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        email TEXT UNIQUE,
-        password TEXT,
-        role TEXT
-      )
-    `);
+  // Create tables
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT,
+      email TEXT UNIQUE,
+      password TEXT,
+      role TEXT
+    )
+  `);
 
-    // Create tickets table
-    await db.run(`
-      CREATE TABLE IF NOT EXISTS tickets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        description TEXT,
-        priority TEXT,
-        status TEXT,
-        agent TEXT,
-        created_at TEXT
-      )
-    `);
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT,
+      description TEXT,
+      priority TEXT,
+      status TEXT,
+      agent TEXT,
+      created_at TEXT
+    )
+  `);
 
-    console.log("✅ SQLite DB initialized successfully");
-  } catch (err) {
-    console.error("❌ Failed to open DB:", err);
-    process.exit(1); // stop server if DB fails
-  }
+  console.log(`Connected to SQLite database at: ${DB_PATH}`);
+  console.warn(
+    "⚠️  Using temporary DB on free plan. Data will reset on redeploy."
+  );
 }
 
-// --- Logging middleware ---
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.body && Object.keys(req.body).length > 0) console.log("Body:", req.body);
   next();
 });
 
-// --- Routes ---
-
-// Test
-app.get("/", (req, res) => res.send("Hello from HelpDesk backend!"));
-
-// Register user
+// Registration
 app.post("/register", async (req, res) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password || !role)
@@ -153,13 +152,13 @@ app.get("/tickets", async (req, res) => {
 });
 
 app.post("/tickets", async (req, res) => {
-  const { title, description, priority, status, agent } = req.body;
+  const { title, description, priority, status, agent, created_at } = req.body;
   if (!title) return res.status(400).json({ message: "Title is required" });
 
   try {
     const result = await db.run(
       "INSERT INTO tickets (title, description, priority, status, agent, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      [title, description || "", priority || "Medium", status || "Open", agent || "", new Date().toISOString()]
+      [title, description || "", priority || "Medium", status || "Open", agent || "", created_at || new Date().toISOString()]
     );
     const ticket = await db.get("SELECT * FROM tickets WHERE id = ?", [result.lastID]);
     res.json(ticket);
@@ -202,7 +201,31 @@ app.delete("/tickets/:id", async (req, res) => {
   }
 });
 
+// AI endpoint
+app.post("/api/ai-response", async (req, res) => {
+  const { prompt } = req.body;
+  if (!prompt) return res.status(400).json({ error: "Prompt is required" });
+
+  try {
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      { model: "gpt-3.5-turbo", messages: [{ role: "user", content: prompt }], max_tokens: 300 },
+      { headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` } }
+    );
+    const aiText = response.data.choices[0].message.content;
+    res.json({ response: aiText });
+  } catch (err) {
+    console.error("AI Response Error:", err);
+    res.status(500).json({ error: "AI response failed" });
+  }
+});
+
+// Serve frontend
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
 // Start server
 initDB()
-  .then(() => app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`)))
-  .catch(err => console.error("Server failed:", err));
+  .then(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)))
+  .catch(err => console.error("Failed to start server:", err));
