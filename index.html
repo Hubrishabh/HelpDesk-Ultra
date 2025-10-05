@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>HelpDesk Ultra — Your Ultimate HelpDesk Experience</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+#auth-section { display:flex; align-items:center; justify-content:center; height:100vh; background: linear-gradient(135deg,#0f0f1f,#1a1a2e); }
+.auth-container { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border-radius:16px; padding:30px; width:350px; box-shadow:0 0 25px rgba(0,200,255,0.4); text-align:center; color:#fff; }
+.auth-container h2{margin-bottom:20px;color:#00e0ff;}
+.auth-container input,.auth-container select{width:100%;padding:10px;margin:8px 0;border:none;border-radius:8px;outline:none;background: rgba(255,255,255,0.1);color:#fff;}
+#tPriority, #tStatus, #tAgentDynamic {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  border: none;
+  border-radius: 8px;
+  outline: none;
+  background: rgba(0,0,0,0.25);
+  color: #fff;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  transition: 0.3s;
+}
+
+/* Focus effect */
+#tPriority:focus, #tStatus:focus, #tAgentDynamic:focus {
+  background: rgba(0,0,0,0.35);
+}
+
+.auth-container .btn.primary{width:100%;margin-top:12px;background:linear-gradient(90deg,#00e0ff,#0077ff);border:none;padding:10px;border-radius:8px;color:#fff;cursor:pointer;font-weight:bold;transition:0.3s;}
+.auth-container .btn.primary:hover{opacity:0.85;}
+.auth-container .link{color:#00e0ff;cursor:pointer;font-weight:bold;}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background: rgba(0,0,0,0.6);justify-content:center;align-items:center;z-index:9999;}
+.modal.show{display:flex;}
+.modal-content{background: rgba(15,15,30,0.95);backdrop-filter: blur(10px);border-radius:16px;padding:20px;width:550px;max-width:95%;box-shadow:0 0 30px rgba(0,200,255,0.5);color:#fff;display:flex;flex-direction:column;max-height:90vh;animation: fadeIn 0.3s ease;}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
+.modal-header h2{color:#00e0ff;}
+.modal-content input,.modal-content select,.modal-content textarea{width:100%;padding:10px;margin:6px 0;border:none;border-radius:8px;background: rgba(255,255,255,0.1);color:#fff;outline:none;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:15px;}
+.btn.small.danger{background:#ff0044;color:#fff;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;}
+.btn.primary{background:linear-gradient(90deg,#00e0ff,#0077ff);border:none;padding:10px 16px;border-radius:8px;color:#fff;cursor:pointer;font-weight:bold;}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.row label{flex:1;display:flex;flex-direction:column;}
+#ticketForm{overflow-y:auto;flex-grow:1;padding-right:5px;}
+.styled-select{-webkit-appearance:none;-moz-appearance:none;appearance:none;position:relative;padding-left:30px;background: rgba(0,0,0,0.25);color:#fff;}
+#logoutBtn{background: linear-gradient(90deg,#ff4d4d,#ff0000);border:none;padding:10px;border-radius:8px;color:#fff;cursor:pointer;font-weight:bold;width:100%;margin-top:10px;transition:0.3s;}
+#logoutBtn:hover{opacity:0.85;}
+@keyframes fadeIn{from{transform:translateY(-20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.toast{position: fixed; bottom:20px; left:50%; transform:translateX(-50%); background: rgba(0,200,255,0.9); color:#fff; padding:10px 20px; border-radius:8px; display:none; z-index:9999;}
+.table-wrap{overflow-x:auto; max-height:60vh; margin-top:10px;}
+table{width:100%; border-collapse:collapse;}
+th,td{padding:8px; text-align:left; border-bottom:1px solid rgba(255,255,255,0.1);}
+th{background:rgba(255,255,255,0.05);}
+.user-grid,.kb-list,.reports-grid{display:flex;flex-wrap:wrap;gap:10px;}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN/SIGNUP SECTION ===== -->
+<div id="auth-section">
+  <div class="auth-container">
+    <h2>HelpDesk Ultra</h2>
+    <div id="loginForm">
+      <h3>Login</h3>
+      <input type="email" id="loginEmail" placeholder="Email" />
+      <input type="password" id="loginPassword" placeholder="Password" />
+      <button id="loginBtn" class="btn primary">Login</button>
+      <p>Don't have an account? <span id="showSignup" class="link">Sign up</span></p>
+    </div>
+    <div id="signupForm" style="display:none;">
+      <h3>Sign Up</h3>
+      <input type="text" id="signupName" placeholder="Full Name" />
+      <input type="email" id="signupEmail" placeholder="Email" />
+      <input type="password" id="signupPassword" placeholder="Password" />
+      <select id="signupRole">
+        <option value="Customer">Customer</option>
+        <option value="Agent">Agent</option>
+        <option value="Admin">Admin</option>
+      </select>
+      <button id="signupBtn" class="btn primary">Sign Up</button>
+      <p>Already have an account? <span id="showLogin" class="link">Login</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MAIN APP AFTER LOGIN ===== -->
+<div id="app" class="app" style="display:none;">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">HD</div>
+      <div class="title">HelpDesk Ultra</div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-section="dashboard">Dashboard</button>
+      <button class="nav-item" data-section="tickets">Tickets</button>
+      <button class="nav-item" data-section="kanban">Board</button>
+      <button class="nav-item" data-section="users">Users</button>
+      <button class="nav-item" data-section="reports">Reports</button>
+      <button class="nav-item" data-section="kb">Knowledge Base</button>
+      <button class="nav-item" data-section="settings">Settings</button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="theme-toggle"><label><input id="themeSwitch" type="checkbox" /> Dark</label></div>
+      <div class="version">v1.0.0</div>
+      <button id="logoutBtn">Logout</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="left">
+        <button id="collapseSidebar" class="icon">☰</button>
+        <h1 id="pageTitle">Dashboard</h1>
+      </div>
+      <div class="right">
+        <input id="globalSearch" placeholder="Search tickets, users, tags..." />
+        <button id="quickNew" class="btn primary">New Ticket</button>
+        <div class="profile" tabindex="0" id="profileBtn">
+          <div class="avatar" id="profileAvatar">U</div>
+          <div class="name" id="profileName">You</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Section -->
+    <section id="dashboard" class="page active">
+      <div class="dashboard-top">
+        <div class="stat-cards">
+          <div class="stat"><div class="num" id="statTotal">0</div><div class="label">Total</div></div>
+          <div class="stat"><div class="num" id="statOpen">0</div><div class="label">Open</div></div>
+          <div class="stat"><div class="num" id="statProgress">0</div><div class="label">In Progress</div></div>
+          <div class="stat"><div class="num" id="statClosed">0</div><div class="label">Closed</div></div>
+          <div class="stat"><div class="num" id="statOverdue">0</div><div class="label">Overdue</div></div>
+        </div>
+        <div class="quick-actions">
+          <button id="dashCreate" class="btn primary">Create Ticket</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tickets Section -->
+    <section id="tickets" class="page"></section>
+
+    <!-- Kanban Section -->
+    <section id="kanban" class="page"></section>
+
+    <!-- Users Page -->
+  <section id="users" class="page"></section>
+
+    <!--Reports Page-->
+  <section id="reports" class="page"></section>
+
+</section>
+
+<!-- Knowledge Base Page -->
+<section id="kb" class="page" style="padding:20px;">
+  <h2 style="text-align:center; color:#00e0ff; margin-bottom:20px;">Knowledge Base</h2>
+
+  <!-- Search Box -->
+  <div style="text-align:center; margin-bottom:20px;">
+    <input type="text" id="kbSearch" placeholder="Search articles..." 
+      style="width:80%; max-width:500px; padding:10px 15px; border-radius:8px; border:none; outline:none; box-shadow:0 0 10px rgba(0,0,0,0.2);" />
+  </div>
+
+  <!-- Category Tabs -->
+  <div id="kbCategories" style="display:flex; justify-content:center; gap:15px; flex-wrap:wrap; margin-bottom:20px;">
+    <button class="kb-category-btn active" data-cat="all">All</button>
+    <button class="kb-category-btn" data-cat="tickets">Tickets</button>
+    <button class="kb-category-btn" data-cat="agents">Agents</button>
+    <button class="kb-category-btn" data-cat="priority">Priority</button>
+    <button class="kb-category-btn" data-cat="settings">Settings</button>
+  </div>
+
+  <!-- KB Cards Container -->
+  <div id="kbContainer" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:20px;">
+    <!-- Example KB Card -->
+    <div class="kb-card" data-category="tickets" style="background:rgba(0,0,0,0.15); padding:15px; border-radius:12px; box-shadow:0 4px 20px rgba(0,200,255,0.2); cursor:pointer; transition:0.3s;">
+      <h3 style="color:#00e0ff; margin-bottom:10px;">How to create a ticket?</h3>
+      <p style="display:none; color:#fff;">Click "New Ticket" on the dashboard, fill in the details, assign an agent or let it auto-assign, set priority, and submit.</p>
+    </div>
+
+    <div class="kb-card" data-category="agents" style="background:rgba(0,0,0,0.15); padding:15px; border-radius:12px; box-shadow:0 4px 20px rgba(0,200,255,0.2); cursor:pointer; transition:0.3s;">
+      <h3 style="color:#00e0ff; margin-bottom:10px;">Assigning tickets to agents</h3>
+      <p style="display:none; color:#fff;">Select an agent from the "Assign Agent" dropdown while creating a ticket. Agents will be notified immediately.</p>
+    </div>
+
+    <div class="kb-card" data-category="priority" style="background:rgba(0,0,0,0.15); padding:15px; border-radius:12px; box-shadow:0 4px 20px rgba(0,200,255,0.2); cursor:pointer; transition:0.3s;">
+      <h3 style="color:#00e0ff; margin-bottom:10px;">Changing ticket priority</h3>
+      <p style="display:none; color:#fff;">Open the ticket and select the desired priority from the dropdown. Priority colors indicate urgency.</p>
+    </div>
+
+    <div class="kb-card" data-category="tickets" style="background:rgba(0,0,0,0.15); padding:15px; border-radius:12px; box-shadow:0 4px 20px rgba(0,200,255,0.2); cursor:pointer; transition:0.3s;">
+      <h3 style="color:#00e0ff; margin-bottom:10px;">Resolving tickets</h3>
+      <p style="display:none; color:#fff;">Change ticket status to "Closed" once resolved. Agents and users will get notifications automatically.</p>
+    </div>
+
+    <div class="kb-card" data-category="settings" style="background:rgba(0,0,0,0.15); padding:15px; border-radius:12px; box-shadow:0 4px 20px rgba(0,200,255,0.2); cursor:pointer; transition:0.3s;">
+      <h3 style="color:#00e0ff; margin-bottom:10px;">Managing system settings</h3>
+      <p style="display:none; color:#fff;">Update email notifications, default user roles, and theme preferences in the Settings page.</p>
+    </div>
+  </div>
+</section>
+
+<script>
+  document.querySelectorAll('.kb-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const p = card.querySelector('p');
+      p.style.display = (p.style.display==='block') ? 'none' : 'block';
+    });
+  });
+
+  const kbSearch = document.getElementById('kbSearch');
+  kbSearch.addEventListener('input', ()=>{
+    const query = kbSearch.value.toLowerCase();
+    document.querySelectorAll('.kb-card').forEach(card=>{
+      const title = card.querySelector('h3').innerText.toLowerCase();
+      const content = card.querySelector('p').innerText.toLowerCase();
+      card.style.display = (title.includes(query) || content.includes(query)) ? 'block' : 'none';
+    });
+  });
+
+  const categoryBtns = document.querySelectorAll('.kb-category-btn');
+  categoryBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      categoryBtns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const cat = btn.dataset.cat;
+      document.querySelectorAll('.kb-card').forEach(card=>{
+        card.style.display = (cat==='all' || card.dataset.category===cat) ? 'block' : 'none';
+      });
+    });
+  });
+</script>
+
+<style>
+  .kb-card:hover {
+    transform: translateY(-5px);
+    box-shadow:0 6px 25px rgba(0,200,255,0.3);
+  }
+
+  .kb-category-btn {
+    background: rgba(255,255,255,0.1);
+    color:#00e0ff;
+    border:none;
+    padding:8px 15px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:0.3s;
+  }
+  .kb-category-btn.active, .kb-category-btn:hover {
+    background: #00e0ff;
+    color:#000;
+  }
+</style>
+
+
+
+<!-- Settings Page -->
+<section id="settings" class="page">
+  <h2>Settings</h2>
+  <form>
+    <label>
+      Notification Email:
+      <input type="email" value="admin@example.com" />
+    </label><br/><br/>
+    <label>
+      Default Role for New Users:
+      <select>
+        <option value="Customer" selected>Customer</option>
+        <option value="Agent">Agent</option>
+        <option value="Admin">Admin</option>
+      </select>
+    </label><br/><br/>
+    <label>
+      Theme:
+      <select>
+        <option value="light">Light</option>
+        <option value="dark" selected>Dark</option>
+      </select>
+    </label><br/><br/>
+    <button type="submit" class="btn primary">Save Settings</button>
+  </form>
+</section>
+
+    <!-- Other sections omitted for brevity -->
+  </main>
+</div>
+
+<!-- Ticket Modal -->
+<div id="ticketModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="ticketModalTitle">🎫 New Ticket</h2>
+      <button id="closeTicketModal" class="btn small danger">&times;</button>
+    </div>
+    <form id="ticketFormDynamic">
+      <input type="hidden" id="ticketId" />
+      <label>Title<input type="text" id="tTitle" required /></label>
+      <label>Description<textarea id="tDesc" rows="5"></textarea></label>
+      <div class="row">
+        <label>Priority<select id="tPriority" class="styled-select">
+          <option value="low" data-color="#00ff66">Low</option>
+          <option value="medium" data-color="#00e0ff" selected>Medium</option>
+          <option value="high" data-color="#ffcc00">High</option>
+          <option value="urgent" data-color="#ff0044">Urgent</option>
+        </select></label>
+        <label>Assign Agent<select id="tAgentDynamic" class="styled-select"><option value="">Auto Assign</option></select></label>
+      </div>
+      <div class="row">
+        <label>Status<select id="tStatus" class="styled-select">
+          <option value="open" data-color="#00e0ff">Open</option>
+          <option value="in_progress" data-color="#ffcc00">In Progress</option>
+          <option value="closed" data-color="#888">Closed</option>
+        </select></label>
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn primary">Save</button>
+        <button type="button" id="cancelTicket" class="btn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+/* ========== VARIABLES ========== */
+const toast=document.getElementById('toast');
+function showToast(msg){ toast.innerText=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',3000); }
+const authSection=document.getElementById('auth-section');
+const app=document.getElementById('app');
+const loginForm=document.getElementById('loginForm');
+const signupForm=document.getElementById('signupForm');
+const profileName=document.getElementById('profileName');
+const profileAvatar=document.getElementById('profileAvatar');
+const tAgentDynamic=document.getElementById('tAgentDynamic');
+let currentUser=null;
+const API='http://localhost:3000';
+
+/* ===== LOGIN/SIGNUP SWITCH ===== */
+document.getElementById('showSignup').onclick=()=>{loginForm.style.display='none'; signupForm.style.display='block';};
+document.getElementById('showLogin').onclick=()=>{signupForm.style.display='none'; loginForm.style.display='block';};
+
+/* ===== SIGNUP ===== */
+document.getElementById('signupBtn').onclick=async()=>{
+  const name=signupName.value.trim(), email=signupEmail.value.trim(), password=signupPassword.value.trim(), role=signupRole.value;
+  if(!name||!email||!password){showToast('All fields required'); return;}
+  try{
+    const res=await fetch(`${API}/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password,role})});
+    const data=await res.json();
+    if(!res.ok){showToast(data.message); return;}
+    currentUser={name,email,role}; profileName.innerText=name; profileAvatar.innerText=name.charAt(0).toUpperCase();
+    authSection.style.display='none'; app.style.display='flex';
+    signupName.value=signupEmail.value=signupPassword.value='';
+    await loadAgents(); await loadDashboardStats();
+  }catch(err){console.error(err); showToast('Server error');}
+};
+
+/* ===== LOGIN ===== */
+document.getElementById('loginBtn').onclick=async()=>{
+  const email=loginEmail.value.trim(), password=loginPassword.value.trim();
+  if(!email||!password){showToast('All fields required'); return;}
+  try{
+    const res=await fetch(`${API}/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    const data=await res.json();
+    if(!res.ok){showToast(data.message); return;}
+    currentUser=data.user; profileName.innerText=currentUser.name; profileAvatar.innerText=currentUser.name.charAt(0).toUpperCase();
+    authSection.style.display='none'; app.style.display='flex';
+    loginEmail.value=loginPassword.value='';
+    await loadAgents(); await loadDashboardStats();
+  }catch(err){console.error(err); showToast('Server error');}
+};
+
+/* ===== LOGOUT ===== */
+document.getElementById('logoutBtn').onclick=()=>{currentUser=null; authSection.style.display='flex'; app.style.display='none'; loginForm.style.display='block'; signupForm.style.display='none'; profileName.innerText='You'; profileAvatar.innerText='U';};
+
+/* ===== LOAD AGENTS ===== */
+async function loadAgents(){
+  try{
+    const res = await fetch(`${API}/users`);
+    const users = await res.json();
+
+    // Save current selection
+    const current = tAgentDynamic.value;
+
+    // Clear dropdown and add default option
+    tAgentDynamic.innerHTML = '<option value="">Auto Assign</option>';
+
+    // Populate agents
+    users.filter(u => u.role === 'Agent').forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.name;
+      opt.innerText = u.name;
+      tAgentDynamic.appendChild(opt);
+    });
+
+    // Restore previous selection if it exists
+    if(current) tAgentDynamic.value = current;
+
+  } catch(err){
+    console.error(err);
+  }
+}
+
+/* ===== LOAD USERS PAGE ===== */
+async function loadUsersPage() {
+    const usersSection = document.getElementById('users');
+    usersSection.innerHTML = `
+        <h2>Users</h2>
+        <input id="userSearch" placeholder="Search users..." style="width:100%;padding:6px;margin:6px 0;border-radius:6px;outline:none;" />
+        <div class="table-wrap">
+            <table id="usersTable"></table>
+        </div>
+    `;
+
+    document.getElementById('userSearch').oninput = () => filterUsers();
+
+    try {
+        const res = await fetch(`${API}/users`);
+        const users = await res.json();
+        window.allUsers = users; 
+        displayUsers(users);
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to load users');
+    }
+}
+
+async function loadReportsPage() {
+    const reportsSection = document.getElementById('reports');
+    reportsSection.innerHTML = `
+        <h2>Reports Dashboard</h2>
+        <canvas id="reportChart" width="400" height="200"></canvas>
+        <div class="report-summary">
+            <p>Total Tickets: <strong id="totalTickets">0</strong></p>
+            <p>Open Tickets: <strong id="openTickets">0</strong></p>
+            <p>In Progress: <strong id="inProgressTickets">0</strong></p>
+            <p>Closed: <strong id="closedTickets">0</strong></p>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`${API}/tickets`);
+        const tickets = await res.json();
+        document.getElementById('totalTickets').innerText = tickets.length;
+        document.getElementById('openTickets').innerText = tickets.filter(t => t.status === 'open').length;
+        document.getElementById('inProgressTickets').innerText = tickets.filter(t => t.status === 'in_progress').length;
+        document.getElementById('closedTickets').innerText = tickets.filter(t => t.status === 'closed').length;
+
+        const ctx = document.getElementById('reportChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Open', 'In Progress', 'Closed'],
+                datasets: [{
+                    label: 'Tickets',
+                    data: [
+                        tickets.filter(t => t.status === 'open').length,
+                        tickets.filter(t => t.status === 'in_progress').length,
+                        tickets.filter(t => t.status === 'closed').length
+                    ],
+                    backgroundColor: ['#00e0ff','#ffcc00','#888']
+                }]
+            },
+            options: {responsive:true,plugins:{legend:{display:false}}}
+        });
+
+    } catch(err) { console.error(err); showToast('Failed to load reports'); }
+}
+function displayUsers(users) {
+    const table = document.getElementById('usersTable');
+    table.innerHTML = '<tr><th>Name</th><th>Email</th><th>Role</th></tr>';
+    users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${u.name}</td><td>${u.email}</td><td>${u.role}</td>`;
+        table.appendChild(tr);
+    });
+}
+
+function filterUsers() {
+    const val = document.getElementById('userSearch').value.toLowerCase();
+    displayUsers(window.allUsers.filter(u =>
+        u.name.toLowerCase().includes(val) ||
+        u.email.toLowerCase().includes(val) ||
+        u.role.toLowerCase().includes(val)
+    ));
+}
+
+
+/* ===== DASHBOARD STATS ===== */
+async function loadDashboardStats(){
+  try{
+    const res=await fetch(`${API}/tickets`);
+    const tickets=await res.json();
+    document.getElementById('statTotal').innerText=tickets.length;
+    document.getElementById('statOpen').innerText=tickets.filter(t=>t.status==='open').length;
+    document.getElementById('statProgress').innerText=tickets.filter(t=>t.status==='in_progress').length;
+    document.getElementById('statClosed').innerText=tickets.filter(t=>t.status==='closed').length;
+    const now=new Date();
+    document.getElementById('statOverdue').innerText=tickets.filter(t=>new Date(t.due_date)<now && t.status!=='closed').length;
+  }catch(err){console.error(err);}
+}
+
+/* ===== REFRESH DASHBOARD & TICKETS EVERY 10S ===== */
+setInterval(async()=>{
+    if(app.style.display==='flex'){
+        await loadDashboardStats();
+        const ticketsSection=document.getElementById('tickets');
+        if(ticketsSection && ticketsSection.classList.contains('active')) createTicketsTable(ticketsSection);
+        const kanbanSection=document.getElementById('kanban');
+        if(kanbanSection && kanbanSection.classList.contains('active')) createKanbanBoard(kanbanSection);
+        const usersSection=document.getElementById('users');
+        if(usersSection && usersSection.classList.contains('active')) loadUsersPage();
+    }
+},10000);
+/* ===== NAVIGATION & PAGE LOAD ===== */
+const navItems = document.querySelectorAll('.nav-item');
+const pages = document.querySelectorAll('.page');
+
+navItems.forEach(item => {
+  item.onclick = () => {
+    navItems.forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+
+    const sec = item.dataset.section;
+    pages.forEach(p => p.classList.remove('active'));
+
+    const page = document.getElementById(sec);
+    if (page) page.classList.add('active');
+
+    // Always call loader functions
+    switch(sec) {
+      case 'tickets': createTicketsTable(page); break;
+      case 'kanban': createKanbanBoard(page); break;
+      case 'users': loadUsersPage(); break;
+      case 'reports': loadReportsPage(); break;
+      case 'kb': loadKBPage(); break;
+      case 'settings': loadSettingsPage(); break;
+    }
+  };
+});
+
+
+
+/* ===== TICKET CRUD & KANBAN ===== */
+let ticketModal=document.getElementById('ticketModal');
+let ticketId=document.getElementById('ticketId'), tTitle=document.getElementById('tTitle'), tDesc=document.getElementById('tDesc'), tPriority=document.getElementById('tPriority'), tStatus=document.getElementById('tStatus');
+
+document.getElementById('quickNew').onclick=openTicketModal;
+document.getElementById('dashCreate').onclick=openTicketModal;
+document.getElementById('closeTicketModal').onclick=closeTicketModal;
+document.getElementById('cancelTicket').onclick=closeTicketModal;
+
+async function openTicketModal(){
+    ticketModal.classList.add('show');
+    await loadAgents();
+}
+function closeTicketModal(){ticketModal.classList.remove('show'); ticketId.value=tTitle.value=tDesc.value=''; tPriority.value='medium'; tStatus.value='open'; tAgentDynamic.value='';}
+
+async function createTicketsTable(container){
+  container.innerHTML='<h2>Tickets</h2><input id="ticketSearch" placeholder="Search tickets..." style="width:100%;padding:6px;margin:6px 0;border-radius:6px;outline:none;" /><div class="table-wrap"><table id="ticketTable"></table></div><button class="btn primary" id="addTicketBtn">New Ticket</button>';
+  document.getElementById('addTicketBtn').onclick=openTicketModal;
+  document.getElementById('ticketSearch').oninput=()=>filterTickets();
+  await loadTickets();
+}
+
+let allTickets=[];
+async function loadTickets(){
+  try{
+    const res=await fetch(`${API}/tickets`);
+    allTickets=await res.json();
+    displayTickets(allTickets);
+  }catch(err){console.error(err);}
+}
+
+function displayTickets(tickets){
+  const table=document.getElementById('ticketTable');
+  table.innerHTML='<tr><th>Title</th><th>Priority</th><th>Status</th><th>Agent</th><th>Actions</th></tr>';
+  tickets.forEach(t=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${t.title}</td><td><span style="padding:4px 8px;border-radius:6px;background:${getPriorityColor(t.priority)}">${t.priority}</span></td><td><span style="padding:4px 8px;border-radius:6px;background:${getStatusColor(t.status)}">${t.status}</span></td><td>${t.agent||'Unassigned'}</td><td><button class="btn small primary" onclick="editTicket('${t.id}')">Edit</button><button class="btn small danger" onclick="deleteTicket('${t.id}')">Delete</button></td>`;
+    table.appendChild(tr);
+  });
+}
+
+function filterTickets(){
+  const val=document.getElementById('ticketSearch').value.toLowerCase();
+  displayTickets(allTickets.filter(t=>t.title.toLowerCase().includes(val)||t.agent?.toLowerCase().includes(val)||t.status.toLowerCase().includes(val)));
+}
+
+function getPriorityColor(p){switch(p){case 'low':return'#00ff66';case 'medium':return'#00e0ff';case 'high':return'#ffcc00';case 'urgent':return'#ff0044';default:return'#888';}}
+function getStatusColor(s){switch(s){case 'open':return'#00e0ff';case 'in_progress':return'#ffcc00';case 'closed':return'#888';default:return'#888';}}
+
+async function editTicket(id){
+  const t=allTickets.find(x=>x.id===id);
+  if(!t)return;
+  ticketId.value=t.id; tTitle.value=t.title; tDesc.value=t.description; tPriority.value=t.priority; tStatus.value=t.status; tAgentDynamic.value=t.agent;
+  ticketModal.querySelector('#ticketModalTitle').innerText='✏️ Edit Ticket';
+  openTicketModal();
+}
+
+async function deleteTicket(id){
+  if(!confirm('Delete this ticket?'))return;
+  try{await fetch(`${API}/tickets/${id}`,{method:'DELETE'}); showToast('Ticket deleted'); await loadTickets(); await loadDashboardStats();}catch(err){console.error(err);showToast('Delete failed');}
+}
+
+document.getElementById("ticketFormDynamic").onsubmit=async(e)=>{
+  e.preventDefault();
+  const id=ticketId.value;
+  const data={title:tTitle.value,description:tDesc.value,priority:tPriority.value,status:tStatus.value,agent:tAgentDynamic.value,created_at:new Date().toISOString()};
+  try{
+    if(id) await fetch(`${API}/tickets/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    else await fetch(`${API}/tickets`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    showToast(id?'Ticket updated!':'Ticket created!');
+    closeTicketModal(); await loadTickets(); await loadDashboardStats();
+  }catch(err){console.error(err);showToast('Failed to save ticket');}
+};
+
+/* ===== KANBAN ===== */
+async function createKanbanBoard(container){
+  container.innerHTML='<h2>Kanban Board</h2><div id="kanban" style="display:flex;gap:10px;overflow-x:auto;"></div>';
+  await loadTickets();
+  const statuses=['open','in_progress','closed'];
+  const kanban=document.getElementById('kanban');
+  statuses.forEach(s=>{
+    const col=document.createElement('div'); col.style.background='rgba(0,200,255,0.1)'; col.style.padding='10px'; col.style.minWidth='250px'; col.style.borderRadius='8px'; col.innerHTML=`<h3>${s.toUpperCase()}</h3>`;
+    const colTickets=allTickets.filter(t=>t.status===s);
+    colTickets.forEach(t=>{
+      const card=document.createElement('div');
+      card.innerHTML=`<strong>${t.title}</strong><p>${t.agent||'Unassigned'}</p>`;
+      card.style.background=getPriorityColor(t.priority); card.style.padding='8px'; card.style.margin='6px 0'; card.style.borderRadius='6px'; card.style.cursor='grab';
+      card.draggable=true;
+      card.ondragstart=e=>e.dataTransfer.setData('text/plain',t.id);
+      col.appendChild(card);
+    });
+    col.ondragover=e=>e.preventDefault();
+    col.ondrop=async e=>{
+      const id=e.dataTransfer.getData('text/plain');
+      const ticket=allTickets.find(x=>x.id===id);
+      if(ticket){ ticket.status=s; await fetch(`${API}/tickets/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(ticket)}); createKanbanBoard(container); await loadDashboardStats();}
+    };
+    kanban.appendChild(col);
+  });
+}
+</script>
+</body>
+</html>
