@@ -16,7 +16,17 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, "skillvision.db");
+
+// Determine DB path
+let DB_PATH;
+if (process.env.DB_PATH) {
+  // Persistent disk (paid plan)
+  DB_PATH = process.env.DB_PATH;
+} else {
+  // Free plan fallback (DB resets on redeploy)
+  DB_PATH = path.join(__dirname, "skillvision.db");
+  console.log("Using local DB path (free plan):", DB_PATH);
+}
 
 app.use(cors());
 app.use(express.json());
@@ -26,7 +36,6 @@ let db;
 
 // Initialize DB
 async function initDB() {
-  // Ensure DB folder exists (Render Persistent Disk)
   const dbDir = path.dirname(DB_PATH);
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
@@ -38,7 +47,7 @@ async function initDB() {
     driver: sqlite3.Database,
   });
 
-  // Create tables if not exist
+  // Create tables if they don't exist
   await db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,6 +71,12 @@ async function initDB() {
   `);
 
   console.log(`Connected to SQLite database at: ${DB_PATH}`);
+  if (!process.env.DB_PATH) {
+    console.warn(
+      "⚠️  Using local DB (free plan). Data will reset on redeploy. " +
+      "For persistence, use Render Persistent Disk and set DB_PATH in .env"
+    );
+  }
 }
 
 // Logging middleware
