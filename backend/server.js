@@ -17,13 +17,15 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Free plan: use /tmp for SQLite
+// Free plan: use /tmp for SQLite (ephemeral, resets on redeploy)
 const DB_PATH = path.join("/tmp", "skillvision.db");
 console.log("Using DB path:", DB_PATH);
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../index.html"))); // serve frontend
+
+// Serve frontend from 'frontend' folder in root
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 let db;
 
@@ -59,7 +61,7 @@ async function initDB() {
 
   console.log(`Connected to SQLite database at: ${DB_PATH}`);
   console.warn(
-    "⚠️  Using temporary DB on free plan. Data will reset on redeploy."
+    "⚠️ Using temporary DB on free plan. Data will reset on redeploy."
   );
 }
 
@@ -69,6 +71,8 @@ app.use((req, res, next) => {
   if (req.body && Object.keys(req.body).length > 0) console.log("Body:", req.body);
   next();
 });
+
+// ---------- ROUTES ---------- //
 
 // Registration
 app.post("/register", async (req, res) => {
@@ -220,9 +224,9 @@ app.post("/api/ai-response", async (req, res) => {
   }
 });
 
-// Serve frontend
+// Serve frontend for root
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../index.html"));
+  res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
 // Start server
