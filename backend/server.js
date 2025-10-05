@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 dotenv.config();
@@ -25,11 +26,19 @@ let db;
 
 // Initialize DB
 async function initDB() {
+  // Ensure DB folder exists (Render Persistent Disk)
+  const dbDir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+    console.log(`Created folder for DB at: ${dbDir}`);
+  }
+
   db = await open({
     filename: DB_PATH,
     driver: sqlite3.Database,
   });
 
+  // Create tables if not exist
   await db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,15 +74,20 @@ app.use((req, res, next) => {
 // Registration
 app.post("/register", async (req, res) => {
   const { name, email, password, role } = req.body;
-  if (!name || !email || !password || !role) return res.status(400).json({ message: "All fields are required" });
+  if (!name || !email || !password || !role)
+    return res.status(400).json({ message: "All fields are required" });
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    await db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", [name, email, hashedPassword, role]);
+    await db.run(
+      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
+      [name, email, hashedPassword, role]
+    );
     res.json({ message: "Registered successfully" });
   } catch (err) {
     console.error("DB Error:", err.message);
-    if (err.message.includes("UNIQUE constraint failed")) res.status(400).json({ message: "Email already exists" });
+    if (err.message.includes("UNIQUE constraint failed"))
+      res.status(400).json({ message: "Email already exists" });
     else res.status(500).json({ message: "Server error" });
   }
 });
@@ -88,7 +102,11 @@ app.post("/login", async (req, res) => {
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
     const match = await bcrypt.compare(password, user.password);
-    if (match) res.json({ message: "Login successful", user: { name: user.name, email: user.email, role: user.role } });
+    if (match)
+      res.json({
+        message: "Login successful",
+        user: { name: user.name, email: user.email, role: user.role },
+      });
     else res.status(400).json({ message: "Invalid credentials" });
   } catch (err) {
     console.error("Login Error:", err);
@@ -114,8 +132,14 @@ app.get("/tickets", async (req, res) => {
 
   if (agent || status) {
     const conditions = [];
-    if (agent && agent !== "all") { conditions.push("agent = ?"); params.push(agent); }
-    if (status && status !== "all") { conditions.push("status = ?"); params.push(status); }
+    if (agent && agent !== "all") {
+      conditions.push("agent = ?");
+      params.push(agent);
+    }
+    if (status && status !== "all") {
+      conditions.push("status = ?");
+      params.push(status);
+    }
     query += " WHERE " + conditions.join(" AND ");
   }
 
