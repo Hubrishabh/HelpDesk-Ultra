@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const DB_PATH = process.env.DB_PATH || "/mnt/data/skillvision.db";
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, "skillvision.db");
 
 app.use(cors());
 app.use(express.json());
