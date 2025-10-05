@@ -17,21 +17,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Use /tmp for Render free plan; locally fallback to backend/skillvision.db
+// ---------- DATABASE SETUP ---------- //
+// Use Render persistent disk if available, else fallback locally
 const LOCAL_DB = path.join(__dirname, "skillvision.db");
-const DB_PATH = process.env.RENDER ? path.join("/tmp", "skillvision.db") : LOCAL_DB;
+const DB_PATH = process.env.RENDER_DISK_PATH
+  ? path.join(process.env.RENDER_DISK_PATH, "skillvision.db")
+  : LOCAL_DB;
 
 console.log("Using DB path:", DB_PATH);
 
-// Create local DB file if not exist (for local dev)
-if (!process.env.RENDER && !fs.existsSync(DB_PATH)) {
+// Create DB file if it doesn't exist (local dev)
+if (!process.env.RENDER_DISK_PATH && !fs.existsSync(DB_PATH)) {
   fs.writeFileSync(DB_PATH, "");
   console.log("Created local skillvision.db file.");
 }
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "../frontend")));
 
 let db;
 
@@ -65,12 +64,19 @@ async function initDB() {
   `);
 
   console.log(`Connected to SQLite database at: ${DB_PATH}`);
-  if (process.env.RENDER) {
-    console.warn("⚠️ Using temporary DB on free plan. Data will reset on redeploy.");
+  if (process.env.RENDER_DISK_PATH) {
+    console.warn("⚠️ Using Render persistent DB. Data will persist across deploys.");
+  } else {
+    console.warn("⚠️ Using local DB. Data is persisted locally only.");
   }
 }
 
-// Logging middleware
+// ---------- MIDDLEWARE ---------- //
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.body && Object.keys(req.body).length > 0) console.log("Body:", req.body);

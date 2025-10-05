@@ -1,2 +1,22 @@
 .env 
 .env 
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# SQLite DB (local, not Render persistent)
+backend/skillvision.db
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts (if any)
+dist/
+build/
