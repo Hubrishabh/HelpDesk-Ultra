@@ -23,7 +23,7 @@ console.log("Using DB path:", DB_PATH);
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "index.html"))); // serve frontend
+app.use(express.static(path.join(__dirname, "../index.html"))); // serve frontend
 
 let db;
 
@@ -222,7 +222,7 @@ app.post("/api/ai-response", async (req, res) => {
 
 // Serve frontend
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "../index.html"));
 });
 
 // Start server
