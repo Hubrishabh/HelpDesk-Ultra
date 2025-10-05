@@ -18,7 +18,6 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // ---------- DATABASE SETUP ---------- //
-// Use Render persistent disk if available, else fallback locally
 const LOCAL_DB = path.join(__dirname, "skillvision.db");
 const DB_PATH = process.env.RENDER_DISK_PATH
   ? path.join(process.env.RENDER_DISK_PATH, "skillvision.db")
@@ -26,7 +25,7 @@ const DB_PATH = process.env.RENDER_DISK_PATH
 
 console.log("Using DB path:", DB_PATH);
 
-// Create DB file if it doesn't exist (local dev)
+// Create local DB if not exists
 if (!process.env.RENDER_DISK_PATH && !fs.existsSync(DB_PATH)) {
   fs.writeFileSync(DB_PATH, "");
   console.log("Created local skillvision.db file.");
@@ -74,7 +73,9 @@ async function initDB() {
 // ---------- MIDDLEWARE ---------- //
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../frontend")));
+
+const FRONTEND_PATH = path.join(process.cwd(), "frontend");
+app.use(express.static(FRONTEND_PATH));
 
 // Logging
 app.use((req, res, next) => {
@@ -84,6 +85,9 @@ app.use((req, res, next) => {
 });
 
 // ---------- ROUTES ---------- //
+
+// Health check (for Render)
+app.get("/healthz", (req, res) => res.status(200).send("OK"));
 
 // Registration
 app.post("/register", async (req, res) => {
@@ -237,11 +241,10 @@ app.post("/api/ai-response", async (req, res) => {
 
 // Serve frontend
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+  res.sendFile(path.join(FRONTEND_PATH, "index.html"));
 });
 
 // Start server
 initDB()
   .then(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)))
   .catch(err => console.error("Failed to start server:", err));
-  
