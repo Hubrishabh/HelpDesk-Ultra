@@ -17,14 +17,20 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Free plan: use /tmp for SQLite (ephemeral, resets on redeploy)
-const DB_PATH = path.join("/tmp", "skillvision.db");
+// Use /tmp for Render free plan; locally fallback to backend/skillvision.db
+const LOCAL_DB = path.join(__dirname, "skillvision.db");
+const DB_PATH = process.env.RENDER ? path.join("/tmp", "skillvision.db") : LOCAL_DB;
+
 console.log("Using DB path:", DB_PATH);
+
+// Create local DB file if not exist (for local dev)
+if (!process.env.RENDER && !fs.existsSync(DB_PATH)) {
+  fs.writeFileSync(DB_PATH, "");
+  console.log("Created local skillvision.db file.");
+}
 
 app.use(cors());
 app.use(express.json());
-
-// Serve frontend from 'frontend' folder in root
 app.use(express.static(path.join(__dirname, "../frontend")));
 
 let db;
@@ -36,7 +42,6 @@ async function initDB() {
     driver: sqlite3.Database,
   });
 
-  // Create tables
   await db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,9 +65,9 @@ async function initDB() {
   `);
 
   console.log(`Connected to SQLite database at: ${DB_PATH}`);
-  console.warn(
-    "⚠️ Using temporary DB on free plan. Data will reset on redeploy."
-  );
+  if (process.env.RENDER) {
+    console.warn("⚠️ Using temporary DB on free plan. Data will reset on redeploy.");
+  }
 }
 
 // Logging middleware
@@ -224,7 +229,7 @@ app.post("/api/ai-response", async (req, res) => {
   }
 });
 
-// Serve frontend for root
+// Serve frontend
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
