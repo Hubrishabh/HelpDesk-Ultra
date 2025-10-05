@@ -17,18 +17,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ---------- DATABASE SETUP ---------- //
-const LOCAL_DB = path.join(__dirname, "skillvision.db");
-const DB_PATH = process.env.RENDER_DISK_PATH
-  ? path.join(process.env.RENDER_DISK_PATH, "skillvision.db")
-  : LOCAL_DB;
+// ---------------- DATABASE SETUP ---------------- //
+// Use Render persistent disk if available, else fallback to local dev
+const DB_DIR = process.env.RENDER_DISK_PATH || __dirname;
+const DB_PATH = path.join(DB_DIR, "skillvision.db");
 
 console.log("Using DB path:", DB_PATH);
 
-// Create local DB if not exists
-if (!process.env.RENDER_DISK_PATH && !fs.existsSync(DB_PATH)) {
+// Ensure DB file exists
+if (!fs.existsSync(DB_PATH)) {
   fs.writeFileSync(DB_PATH, "");
-  console.log("Created local skillvision.db file.");
+  console.log("Created skillvision.db file.");
 }
 
 let db;
@@ -64,30 +63,28 @@ async function initDB() {
 
   console.log(`Connected to SQLite database at: ${DB_PATH}`);
   if (process.env.RENDER_DISK_PATH) {
-    console.warn("⚠️ Using Render persistent DB. Data will persist across deploys.");
+    console.warn("⚠️ Using Render persistent DB. Data persists across deploys.");
   } else {
-    console.warn("⚠️ Using local DB. Data is persisted locally only.");
+    console.warn("⚠️ Using local DB. Data persists locally only.");
   }
 }
 
-// ---------- MIDDLEWARE ---------- //
+// ---------------- MIDDLEWARE ---------------- //
 app.use(cors());
 app.use(express.json());
 
-const FRONTEND_PATH = path.join(process.cwd(), "frontend");
+// Serve frontend from correct Render path
+const FRONTEND_PATH = path.join(__dirname, "../frontend");
 app.use(express.static(FRONTEND_PATH));
 
-// Logging
+// Logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.body && Object.keys(req.body).length > 0) console.log("Body:", req.body);
   next();
 });
 
-// ---------- ROUTES ---------- //
-
-// Health check (for Render)
-app.get("/healthz", (req, res) => res.status(200).send("OK"));
+// ---------------- ROUTES ---------------- //
 
 // Registration
 app.post("/register", async (req, res) => {
@@ -97,10 +94,12 @@ app.post("/register", async (req, res) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    await db.run(
-      "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-      [name, email, hashedPassword, role]
-    );
+    await db.run("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)", [
+      name,
+      email,
+      hashedPassword,
+      role,
+    ]);
     res.json({ message: "Registered successfully" });
   } catch (err) {
     console.error("DB Error:", err.message);
@@ -138,6 +137,7 @@ app.get("/users", async (req, res) => {
     const users = await db.all("SELECT id, name, email, role FROM users");
     res.json(users);
   } catch (err) {
+    console.error("Get users error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -239,12 +239,12 @@ app.post("/api/ai-response", async (req, res) => {
   }
 });
 
-// Serve frontend
-app.get("/", (req, res) => {
+// Serve frontend index.html for all other routes (SPA support)
+app.get("*", (req, res) => {
   res.sendFile(path.join(FRONTEND_PATH, "index.html"));
 });
 
 // Start server
 initDB()
   .then(() => app.listen(PORT, () => console.log(`Server running on port ${PORT}`)))
-  .catch(err => console.error("Failed to start server:", err));
+  .catch((err) => console.error("Failed to start server:", err));
